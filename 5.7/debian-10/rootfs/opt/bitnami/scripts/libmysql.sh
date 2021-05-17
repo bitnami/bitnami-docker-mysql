@@ -668,10 +668,26 @@ wait_for_mysql_access() {
 #   None
 #########################
 mysql_stop() {
-    ! is_mysql_running && return
+    local -r retries=25
+    local -r sleep_time=5
+
+    are_db_files_locked() {
+        local return_value=0
+        for f in "ibdata1" "ib_logfile0" "ib_logfile1"; do
+            debug_execute lsof -w "${DB_DATA_DIR}/${f}" && return_value=1
+        done
+        return $return_value
+    }
+
+    is_mysql_not_running && return
 
     info "Stopping $DB_FLAVOR"
     stop_service_using_pid "$DB_PID_FILE"
+    debug "Waiting for $DB_FLAVOR to unlock db files"
+    if ! retry_while are_db_files_locked "$retries" "$sleep_time"; then
+        error "MySQL failed to stop"
+        return 1
+    fi
 }
 
 ########################
