@@ -673,8 +673,9 @@ mysql_stop() {
 
     are_db_files_locked() {
         local return_value=0
-        for f in "ibdata1" "ib_logfile0" "ib_logfile1"; do
-            debug_execute lsof -w "${DB_DATA_DIR}/${f}" && return_value=1
+        read -r -a db_files <<< "$(find "$DB_DATA_DIR" -regex "^.*ibdata[0-9]+" -o -regex "^.*ib_logfile[0-9]+" | xargs)"
+        for f in "${db_files[@]}"; do
+            debug_execute lsof -w "$f" && return_value=1
         done
         return $return_value
     }
